@@ -18,7 +18,7 @@
  */
 
 module up5kdemo (
-	input clkin,
+	input clk,
 
 	output ser_tx,
 	input ser_rx,
@@ -34,15 +34,6 @@ module up5kdemo (
 
 );
 	
-	wire clk;
-	
-	SB_GB_IO  #(
-		.PIN_TYPE(6'b000001)
-	) clkin_gbio (
-		.PACKAGE_PIN(clkin),
-		.GLOBAL_BUFFER_OUTPUT(clk)
-	);
-
 	reg [5:0] reset_cnt = 0;
 	wire resetn = &reset_cnt;
 

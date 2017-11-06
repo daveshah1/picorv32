@@ -1,6 +1,6 @@
 # TODO: pcf
 
-set_io clkin 44
+set_io clk 44
 
 set_io flash_csb 16
 set_io flash_clk 15
