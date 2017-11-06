@@ -1,0 +1,20 @@
+# TODO: pcf
+
+set_io clkin 44
+
+set_io flash_csb 16
+set_io flash_clk 15
+set_io flash_io0 14
+set_io flash_io1 17
+
+# TODO : QSPI
+set_io flash_io2 27
+set_io flash_io3 32
+
+set_io ser_tx 35
+set_io ser_rx 31
+
+set_io leds[1] 13 
+set_io leds[0] 12  
+
+ 

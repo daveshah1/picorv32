@@ -342,8 +342,8 @@ void cmd_benchmark_all()
 
 void main()
 {
-	reg_uart_clkdiv = 104;
-	set_flash_qspi_flag();
+	reg_uart_clkdiv = 139;
+	//set_flash_qspi_flag();
 
 	while (getchar_prompt("Press ENTER to continue..\n") != '\r') { /* wait */ }
 

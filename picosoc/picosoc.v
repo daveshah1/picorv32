@@ -117,10 +117,10 @@ module picosoc (
 		.PROGADDR_RESET(PROGADDR_RESET),
 		.PROGADDR_IRQ(32'h 0000_0000),
 		.BARREL_SHIFTER(1),
-		.COMPRESSED_ISA(1),
-		.ENABLE_MUL(1),
-		.ENABLE_DIV(1),
-		.ENABLE_IRQ(1),
+		.COMPRESSED_ISA(0),
+		.ENABLE_MUL(0),
+		.ENABLE_DIV(0),
+		.ENABLE_IRQ(0),
 		.ENABLE_IRQ_QREGS(0)
 	) cpu (
 		.clk         (clk        ),

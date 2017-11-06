@@ -1,0 +1,74 @@
+ARACHNE = ~/arachne-pnr/bin/arachne-pnr
+ARACHNE_ARGS = -c ~/icestorm/icebox/chipdb-5k.txt --no-promote-globals
+ICEPACK = ~/icestorm/icepack/icepack
+ICETIME = ~/icestorm/icetime/icetime
+ICEPROG = ~/icestorm/iceprog/iceprog
+
+# ---- iCE40 UP5k Breakout Board ----
+
+up5ksim: up5kdemo_tb.vvp firmware.hex
+	vvp -N $<
+
+up5ksynsim: up5kdemo_syn_tb.vvp firmware.hex
+	vvp -N $<
+
+up5kdemo.blif: up5kdemo.v spimemio.v simpleuart.v picosoc.v ../picorv32.v
+	yosys -ql up5kdemo.log -p 'synth_ice40 -top up5kdemo -blif up5kdemo.blif' $^
+
+up5kdemo_tb.vvp: up5kdemo_tb.v up5kdemo.v spimemio.v simpleuart.v picosoc.v ../picorv32.v spiflash.v
+	iverilog -s testbench -o $@ -D DEBUGREGS $^ `yosys-config --datdir/ice40/cells_sim.v`
+
+up5kdemo_syn_tb.vvp: up5kdemo_tb.v up5kdemo_syn.v spiflash.v
+	iverilog -s testbench -o $@ $^ `yosys-config --datdir/ice40/cells_sim.v`
+
+up5kdemo_syn.v: up5kdemo.blif
+	yosys -p 'read_blif -wideports up5kdemo.blif; write_verilog up5kdemo_syn.v'
+
+up5kdemo.asc: up5kdemo.pcf up5kdemo.blif
+	$(ARACHNE) -d 5k $(ARACHNE_ARGS) -o up5kdemo.asc -p up5kdemo.pcf up5kdemo.blif
+
+up5kdemo.bin: up5kdemo.asc
+	# $(ICETIME) -d up5k -c 12 -mtr up5kdemo.rpt up5kdemo.asc
+	$(ICEPACK) up5kdemo.asc up5kdemo.bin
+
+up5kprog: up5kdemo.bin firmware.bin
+	$(ICEPROG) up5kdemo.bin
+	$(ICEPROG) -o 1M firmware.bin
+
+up5kprog_fw: firmware.bin
+	$(ICEPROG) -o 1M firmware.bin
+
+# ---- Example Firmware ----
+
+firmware.elf: sections.lds start.s firmware.c
+	riscv64-unknown-elf-gcc -mabi=ilp32 -march=rv32i -Wl,-Bstatic,-T,sections.lds,--strip-debug -ffreestanding -nostdlib -o firmware.elf start.s firmware.c
+
+firmware.hex: firmware.elf
+	riscv64-unknown-elf-objcopy -O verilog firmware.elf /dev/stdout | sed -e '1 s/@00000000/@00100000/; 2,65537 d;' > firmware.hex
+
+firmware.bin: firmware.elf
+	riscv64-unknown-elf-objcopy  -O binary firmware.elf /dev/stdout | tail -c +1048577 > firmware.bin
+
+# ---- Testbench for SPI Flash Model ----
+
+spiflash_tb: spiflash_tb.vvp firmware.hex
+	vvp -N $<
+
+spiflash_tb.vvp: spiflash.v spiflash_tb.v
+	iverilog -s testbench -o $@ $^
+
+# ---- ASIC Synthesis Tests ----
+
+cmos.log: spimemio.v simpleuart.v picosoc.v ../picorv32.v
+	yosys -l cmos.log -p 'synth -top picosoc; abc -g cmos2; opt -fast; stat' $^
+
+# ---- Clean ----
+
+clean:
+	rm -f testbench.vvp testbench.vcd spiflash_tb.vvp spiflash_tb.vcd
+	rm -f firmware.elf firmware.hex firmware.bin cmos.log
+	rm -f up5kdemo.blif up5kdemo.log up5kdemo.asc up5kdemo.rpt up5kdemo.bin
+	rm -f up5kdemo_syn.v up5kdemo_syn_tb.vvp up5kdemo_tb.vvp
+
+.PHONY: spiflash_tb up5kprog up5kprog_fw up5ksim up5ksynsim clean
+

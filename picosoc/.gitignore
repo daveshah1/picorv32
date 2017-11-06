@@ -13,3 +13,8 @@
 /hx8kdemo_tb.vvp
 /testbench.vcd
 /cmos.log
+/*.asc
+/*.bin
+/*.exp
+/*.blif
+/*.log
