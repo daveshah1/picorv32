@@ -97,15 +97,16 @@ wire [6:0] text_x = h_pos[9:3];
 wire [6:0] text_y = v_pos[9:3];
 
 wire [2:0] char_x = h_pos[2:0];
-wire [2:0] char_y = (h_pos > h_active) ? (v_pos[2:0] + 1) : (v_pos[2:0]); //preload correct data before start of new line
+wire [2:0] char_y = (h_pos > h_visible) ? (v_pos[2:0] + 1) : (v_pos[2:0]); //preload correct data before start of new line
 
 reg [7:0] tram_data_reg;
 reg [7:0] crom_data_reg;
 
 reg [1:0] char_colour_reg; //delay char colour bit equally to CROM data
 
-parameter ainc_to_valid = 1 + 1 + 1 + 1; //latency from incremeting TRAM addr to data change
-wire [9:0] hpos_sub = (h_pos - ainc_to_valid);
+parameter ainc_to_valid = 1 + 1 + 1 + 1 + 1; //latency from incremeting TRAM addr to data change
+wire incr_tram_addr = visible && (char_x == (8 - ainc_to_valid));
+wire [12:0] hpos_add = (h_pos + ainc_to_valid);
 reg [12:0] tram_addr_reg;
 
 always @(posedge clk) 
@@ -130,7 +131,7 @@ begin
       h_pos <= h_pos + 1;
     end
     //TRAM address control
-    tram_addr_reg <= text_y * 13'd80 + hpos_sub[9:3];
+    tram_addr_reg <= text_y * 13'd80 + (h_active ? hpos_add[9:3] : ((char_y == 7) ? 13'd80 : 0));
     //Data registers
     tram_data_reg <= tram_data;
     char_colour_reg[0] <= tram_data_reg[7];
