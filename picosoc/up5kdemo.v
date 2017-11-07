@@ -30,8 +30,15 @@ module up5kdemo (
 	inout  flash_io0,
 	inout  flash_io1,
 	inout  flash_io2,
-	inout  flash_io3
-
+	inout  flash_io3,
+	
+	output vga_r,
+	output vga_g,
+	output vga_b,
+	output vga_hsync_n,
+	output vga_vsync_n,
+	
+	output vga_pixck_dbg
 );
 	
 	reg [5:0] reset_cnt = 0;
@@ -78,6 +85,9 @@ module up5kdemo (
 				if (iomem_wstrb[1]) gpio[15: 8] <= iomem_wdata[15: 8];
 				if (iomem_wstrb[2]) gpio[23:16] <= iomem_wdata[23:16];
 				if (iomem_wstrb[3]) gpio[31:24] <= iomem_wdata[31:24];
+			end else if (iomem_valid && !iomem_ready && iomem_addr[31:24] == 8'h 04) begin
+				iomem_ready <= 1;
+				iomem_rdata <= 32'd0;
 			end
 		end
 	end
@@ -118,7 +128,24 @@ module up5kdemo (
 		.iomem_wdata  (iomem_wdata ),
 		.iomem_rdata  (iomem_rdata )
 	);
-
+	
+	wire vga_wren;
+	assign vga_wren = (iomem_valid && !iomem_ready && iomem_addr[31:24] == 8'h 04) ? iomem_wstrb : 4'b0000;
+	
+	
+	vgacon_top vgacon_inst(
+		.sysclk(clk),
+	  .resetn(resetn),
+	  .sys_addr(iomem_addr[12:2]),
+	  .sys_write_data(iomem_wdata),
+	  .sys_wren(vga_wren),
+	  .vga_r(vga_r),
+	  .vga_g(vga_g),
+	  .vga_b(vga_b),
+	  .vga_hsync_n(vga_hsync_n),
+	  .vga_vsync_n(vga_vsync_n),
+		.vga_pixck_dbg(vga_pixck_dbg));
+	
 	/*assign debug_ser_tx = ser_tx;
 	assign debug_ser_rx = ser_rx;
 

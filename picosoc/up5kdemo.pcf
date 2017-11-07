@@ -17,4 +17,9 @@ set_io ser_rx 31
 set_io leds[1] 13 
 set_io leds[0] 12  
 
- 
+set_io vga_r 11
+set_io vga_g 9
+set_io vga_b 6
+set_io vga_hsync_n 19
+set_io vga_vsync_n 18
+set_io vga_pixck_dbg 26

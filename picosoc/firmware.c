@@ -9,6 +9,7 @@ extern uint32_t sram;
 #define reg_uart_clkdiv (*(volatile uint32_t*)0x02000004)
 #define reg_uart_data (*(volatile uint32_t*)0x02000008)
 #define reg_leds (*(volatile uint32_t*)0x03000000)
+#define reg_text ((volatile uint8_t*)0x04000000)
 
 // --------------------------------------------------------
 
@@ -47,6 +48,60 @@ void set_flash_latency(uint8_t value)
 	flashio(buffer_wr, 5, 0x06);
 }
 
+const int vga_width = 80;
+const int vga_height = 50;
+const int vga_size = 4000;
+
+void vga_clear() {
+	for(int i = 0; i < vga_size; i++)
+		reg_text[i] = 0x00;
+}
+
+void vga_do_scroll() {
+	int vga_addr = 0;
+	for(int y = 0; y < (vga_height - 1); y++) {
+		for(int x = 0; x < vga_width; x++) {
+			reg_text[vga_addr] = reg_text[vga_addr + 80];
+			vga_addr++;
+		}
+	}
+	for(int x = 0; x < vga_width; x++) {
+		reg_text[vga_addr] = 0x00;
+		vga_addr++;
+	}
+}
+
+int cursor_x = 0;
+int cursor_y = 0;
+
+//temporary toolchain workaround
+int get_offset(int x, int y) {
+	int offset = 0;
+	for(int i = 0; i < y; i++) offset += vga_width;
+	offset += x;
+	return offset;
+}
+
+void vga_newline() {
+	if(cursor_y < (vga_height - 1)) {
+		cursor_x = 0;
+		cursor_y++;
+	} else {
+		cursor_y = vga_height - 1;
+		cursor_x = 0;
+		vga_do_scroll();
+	}
+}
+
+void vga_putch(char c) {
+	if((c == '\n') || (cursor_x >= (vga_width - 1))) {
+		vga_newline();
+	} else {
+		reg_text[get_offset(cursor_x, cursor_y)] = c;
+		cursor_x++;
+	}
+}
+
 // --------------------------------------------------------
 
 void putchar(char c)
@@ -54,6 +109,7 @@ void putchar(char c)
 	if (c == '\n')
 		putchar('\r');
 	reg_uart_data = c;
+	vga_putch(c);
 }
 
 void print(const char *p)
@@ -342,6 +398,7 @@ void cmd_benchmark_all()
 
 void main()
 {
+	vga_clear();
 	reg_uart_clkdiv = 139;
 	//set_flash_qspi_flag();
 
