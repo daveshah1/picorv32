@@ -5,7 +5,7 @@
 
 module vgacon_top(input sysclk,
                   input resetn,
-                  input [10:0] sys_addr, //System TRAM interface
+                  input [12:0] sys_addr, //System TRAM interface
                   input [31:0] sys_write_data,
                   input [3:0] sys_wren,
                   output vga_r,
@@ -31,8 +31,8 @@ wire [7:0] vga_tram_data;
 vgacon_tram tram_inst(
     .sys_clk(sysclk),
     .sys_addr(sys_addr),
-    .sys_data(sys_write_data),
-    .sys_wren(sys_wren), 
+    .sys_data(sys_write_data[7:0]),
+    .sys_wren(sys_wren[0]), 
                    
     .video_clk(vgaclk),
     .video_addr(vga_tram_addr), 
@@ -104,9 +104,8 @@ reg [7:0] crom_data_reg;
 
 reg [1:0] char_colour_reg; //delay char colour bit equally to CROM data
 
-parameter ainc_to_valid = 1 + 1 + 1 + 1 + 1; //latency from incremeting TRAM addr to data change
-wire incr_tram_addr = visible && (char_x == (8 - ainc_to_valid));
-
+parameter ainc_to_valid = 1 + 1 + 1 + 1; //latency from incremeting TRAM addr to data change
+wire [9:0] hpos_sub = (h_pos - ainc_to_valid);
 reg [12:0] tram_addr_reg;
 
 always @(posedge clk) 
@@ -131,12 +130,9 @@ begin
       h_pos <= h_pos + 1;
     end
     //TRAM address control
-    if (!v_active)
-      tram_addr_reg <= 0;
-    else if(incr_tram_addr)
-      tram_addr_reg <= tram_addr_reg + 1;
+    tram_addr_reg <= text_y * 13'd80 + hpos_sub[9:3];
     //Data registers
-    tram_data_reg <= x"39";
+    tram_data_reg <= tram_data;
     char_colour_reg[0] <= tram_data_reg[7];
     char_colour_reg[1] <= char_colour_reg[0];
     crom_data_reg <= crom_data;

@@ -136,7 +136,7 @@ module up5kdemo (
 	vgacon_top vgacon_inst(
 		.sysclk(clk),
 	  .resetn(resetn),
-	  .sys_addr(iomem_addr[12:2]),
+	  .sys_addr(iomem_addr[14:2]),
 	  .sys_write_data(iomem_wdata),
 	  .sys_wren(vga_wren),
 	  .vga_r(vga_r),

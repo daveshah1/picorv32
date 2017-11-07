@@ -1,5 +1,5 @@
 ARACHNE = ~/arachne-pnr/bin/arachne-pnr
-ARACHNE_ARGS = -c ~/icestorm/icebox/chipdb-5k.txt
+ARACHNE_ARGS = -c ~/icestorm/icebox/chipdb-5k.txt -s 5
 ICEPACK = ~/icestorm/icepack/icepack
 ICETIME = ~/icestorm/icetime/icetime
 ICEPROG = ~/icestorm/iceprog/iceprog

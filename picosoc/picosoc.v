@@ -59,7 +59,7 @@ module picosoc (
 	input  flash_io2_di,
 	input  flash_io3_di
 );
-	parameter integer MEM_WORDS = 256;
+	parameter integer MEM_WORDS = 512;
 	parameter [31:0] STACKADDR = (4*MEM_WORDS);       // end of memory
 	parameter [31:0] PROGADDR_RESET = 32'h 0010_0000; // 1 MB into flash
 
