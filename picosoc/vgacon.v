@@ -131,7 +131,7 @@ begin
       h_pos <= h_pos + 1;
     end
     //TRAM address control
-    tram_addr_reg <= text_y * 13'd80 + (h_active ? hpos_add[9:3] : ((char_y == 7) ? 13'd80 : 0));
+    tram_addr_reg <= text_y * 13'd80 + (h_active ? hpos_add[9:3] : ((char_y == 0) ? 13'd80 : 0));
     //Data registers
     tram_data_reg <= tram_data;
     char_colour_reg[0] <= tram_data_reg[7];
@@ -141,8 +141,8 @@ begin
     vga_hsync_n <= !((h_pos >= (h_visible + h_front)) && (h_pos < (h_visible + h_front + h_sync)));
     vga_vsync_n <= !((v_pos >= (v_visible + v_front)) && (v_pos < (v_visible + v_front + v_sync)));
     vga_r <= current_pixel;
-    vga_g <= current_pixel;
-    vga_b <= current_pixel;
+    vga_g <= current_pixel && !char_colour_reg[1];
+    vga_b <= current_pixel && !char_colour_reg[1];
 
   end
 end

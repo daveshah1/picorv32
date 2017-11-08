@@ -1,6 +1,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "docs.h"
+
+
 // a pointer to this is a null pointer, but the compiler does not
 // know that because "sram" is a linker symbol from sections.lds.
 extern uint32_t sram;
@@ -53,33 +56,40 @@ const int vga_height = 50;
 const int vga_size = 4000;
 #define cursor_x (*(&sram + 0x100))
 #define cursor_y (*(&sram + 0x104))
+#define vga_colour (*(&sram + 0x108))
+#define cursor_addr (*(&sram + 0x10C))
 
 void vga_clear() {
 	cursor_x = 0;
 	cursor_y = 0;
+	cursor_addr = 0;
+	vga_colour = 0;
 	for(int i = 0; i < vga_size; i++)
 		reg_text[i] = 0x00;
 }
 
+#define RED 1
+#define WHITE 0
 
+void set_colour(int c) {
+	vga_colour = c;
+}
 
 
 //temporary toolchain workaround
-int get_offset(int x, int y) {
-	int offset = 0;
-	for(int i = 0; i < y; i++) offset += vga_width;
-	offset += x;
-	return offset;
-}
+#define mul_80(x) ((x << 6) + (x << 4))
 
 void vga_newline() {
 	if(cursor_y < (vga_height - 1)) {
 		cursor_x = 0;
 		cursor_y++;
+		cursor_addr = mul_80(cursor_y);
+
 	} else {
 		vga_clear();
 		cursor_y = 0;
 		cursor_x = 0;
+		cursor_addr = 0;
 	}
 }
 
@@ -87,7 +97,7 @@ void vga_putch(char c) {
 	if((c == '\n') || (cursor_x >= (vga_width - 1))) {
 		vga_newline();
 	} else {
-		reg_text[get_offset(cursor_x, cursor_y)] = c;
+		reg_text[cursor_addr++] = vga_colour ? (c | 0x80) : (c & 0x7F);
 		cursor_x++;
 	}
 }
@@ -385,6 +395,20 @@ void cmd_benchmark_all()
 	putchar('\n');
 }
 
+void read_docs() {
+	vga_clear();
+	const char *docs_pos = docs_text;
+	while(*docs_pos != '\0') {
+		if((cursor_y == (vga_height - 1)) && ((cursor_x == (vga_width - 1)) || (*docs_pos == '\n'))) {
+			//Wait at end of page
+			char c = getchar();
+			if(c == 0x04) break; //Ctrl+D to exit
+		}
+		vga_putch(*(docs_pos++));
+	}
+	vga_clear();
+}
+
 // --------------------------------------------------------
 
 void main()
@@ -442,11 +466,16 @@ void main()
 		print("   [7] Toggle continuous read mode\n");
 		print("   [9] Run simplistic benchmark\n");
 		print("   [0] Benchmark all configs\n");
+		print("   [H] Read the documentation (VGA only)\n");
+		
 		print("\n");
 
 		for (int rep = 10; rep > 0; rep--)
 		{
+			set_colour(RED);
 			print("Command> ");
+			set_colour(WHITE);
+
 			char cmd = getchar();
 			if (cmd > 32 && cmd < 127)
 				putchar(cmd);
@@ -481,6 +510,8 @@ void main()
 			case '0':
 				cmd_benchmark_all();
 				break;
+			case 'H':
+				read_docs();
 			default:
 				continue;
 			}

@@ -8,7 +8,7 @@ FIRMWARE_OBJS = firmware/start.o firmware/irq.o firmware/print.o firmware/sieve.
 GCC_WARNS  = -Werror -Wall -Wextra -Wshadow -Wundef -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings
 GCC_WARNS += -Wredundant-decls -Wstrict-prototypes -Wmissing-prototypes -pedantic # -Wconversion
 TOOLCHAIN_PREFIX = $(RISCV_GNU_TOOLCHAIN_INSTALL_PREFIX)i/bin/riscv32-unknown-elf-
-COMPRESSED_ISA = C
+COMPRESSED_ISA = 
 
 # Add things like "export http_proxy=... https_proxy=..." here
 GIT_ENV = true
