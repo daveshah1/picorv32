@@ -133,7 +133,7 @@ module up5kdemo (
 	assign vga_wren = (iomem_valid && !iomem_ready && iomem_addr[31:24] == 8'h 04) ? iomem_wstrb : 4'b0000;
 	
 	
-	vgacon_top vgacon_inst(
+ /*vgacon_top vgacon_inst(
 		.sysclk(clk),
 	  .resetn(resetn),
 	  .sys_addr(iomem_addr[14:2]),
@@ -144,7 +144,7 @@ module up5kdemo (
 	  .vga_b(vga_b),
 	  .vga_hsync_n(vga_hsync_n),
 	  .vga_vsync_n(vga_vsync_n),
-		.vga_pixck_dbg(vga_pixck_dbg));
+		.vga_pixck_dbg(vga_pixck_dbg));*/
 	
 	/*assign debug_ser_tx = ser_tx;
 	assign debug_ser_rx = ser_rx;

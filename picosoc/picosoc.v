@@ -59,7 +59,7 @@ module picosoc (
 	input  flash_io2_di,
 	input  flash_io3_di
 );
-	parameter integer MEM_WORDS = 512;
+	parameter integer MEM_WORDS = 32768;
 	parameter [31:0] STACKADDR = (4*MEM_WORDS);       // end of memory
 	parameter [31:0] PROGADDR_RESET = 32'h 0010_0000; // 1 MB into flash
 
@@ -187,7 +187,14 @@ module picosoc (
 	always @(posedge clk)
 		ram_ready <= mem_valid && !mem_ready && mem_addr < 4*MEM_WORDS;
 
-	picosoc_mem #(.WORDS(MEM_WORDS)) memory (
+	/*picosoc_mem #(.WORDS(MEM_WORDS)) memory (
+		.clk(clk),
+		.wen((mem_valid && !mem_ready && mem_addr < 4*MEM_WORDS) ? mem_wstrb : 4'b0),
+		.addr(mem_addr[23:2]),
+		.wdata(mem_wdata),
+		.rdata(ram_rdata)
+	);*/
+	up_spram memory (
 		.clk(clk),
 		.wen((mem_valid && !mem_ready && mem_addr < 4*MEM_WORDS) ? mem_wstrb : 4'b0),
 		.addr(mem_addr[23:2]),

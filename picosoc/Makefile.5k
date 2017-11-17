@@ -12,7 +12,7 @@ up5ksim: up5kdemo_tb.vvp firmware.hex
 up5ksynsim: up5kdemo_syn_tb.vvp firmware.hex
 	vvp -N $<
 
-up5kdemo.blif: up5kdemo.v spimemio.v simpleuart.v picosoc.v vgacon.v vgacon_crom.v vgacon_pll.v vgacon_tram.v ../picorv32.v
+up5kdemo.blif: up5kdemo.v spimemio.v simpleuart.v picosoc.v vgacon.v vgacon_crom.v vgacon_pll.v vgacon_tram.v up_spram.v ../picorv32.v
 	yosys -ql up5kdemo.log -p 'synth_ice40 -top up5kdemo -blif up5kdemo.blif' $^
 
 up5kdemo_tb.vvp: up5kdemo_tb.v up5kdemo.v spimemio.v simpleuart.v picosoc.v ../picorv32.v spiflash.v

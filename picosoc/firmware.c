@@ -158,6 +158,39 @@ void print_dec(uint32_t v)
 	else putchar('0');
 }
 
+uint32_t xorshift32(uint32_t *state)
+{
+	/* Algorithm "xor" from p. 4 of Marsaglia, "Xorshift RNGs" */
+	uint32_t x = *state;
+	x ^= x << 13;
+	x ^= x >> 17;
+	x ^= x << 5;
+	*state = x;
+	return x;
+}
+
+void memtest() {
+	int cyc_count = 5;
+	uint32_t state;
+	for(int i = 1; i <= cyc_count; i++) {
+		state = i;
+		for(int addr = 1000; addr < 32000; addr++) {
+			*(&sram + addr) = xorshift32(&state);
+		}
+		state = i;
+		for(int addr = 1000; addr < 32000; addr++) {
+			if(*(&sram + addr) != xorshift32(&state)) {
+				print("Memtest ***FAIL*** at ");
+				print_hex(4*addr, 4);
+				print("\n");
+				return;
+			};
+		}
+	}
+	print("Memtest pass\n");
+}
+
+
 char getchar_prompt(char *prompt)
 {
 	int32_t c = -1;
@@ -467,7 +500,8 @@ void main()
 		print("   [9] Run simplistic benchmark\n");
 		print("   [0] Benchmark all configs\n");
 		print("   [H] Read the documentation (VGA only)\n");
-		
+		print("   [M] Run SPRAM test\n");
+
 		print("\n");
 
 		for (int rep = 10; rep > 0; rep--)
@@ -512,6 +546,10 @@ void main()
 				break;
 			case 'H':
 				read_docs();
+				break;
+			case 'M':
+				memtest();
+				break;
 			default:
 				continue;
 			}
