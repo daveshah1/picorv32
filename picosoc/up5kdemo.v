@@ -38,7 +38,11 @@ module up5kdemo (
 	output vga_hsync_n,
 	output vga_vsync_n,
 	
-	output vga_pixck_dbg
+	output vga_pixck_dbg,
+	
+	output RGB0, RGB1, RGB2,
+	
+	inout i2c_sda, i2c_scl
 );
 	
 	reg [5:0] reset_cnt = 0;
@@ -73,6 +77,9 @@ module up5kdemo (
 	reg [31:0] gpio;
 	assign leds = gpio;
 
+	wire ip_ready;
+	wire [31:0] ip_rdata; 
+
 	always @(posedge clk) begin
 		if (!resetn) begin
 			gpio <= 0;
@@ -88,6 +95,9 @@ module up5kdemo (
 			end else if (iomem_valid && !iomem_ready && iomem_addr[31:24] == 8'h 04) begin
 				iomem_ready <= 1;
 				iomem_rdata <= 32'd0;
+			end else if (iomem_valid && !iomem_ready && iomem_addr[31:24] == 8'h 05) begin // Hard IP
+				iomem_ready <= ip_ready;
+				iomem_rdata <= ip_rdata;
 			end
 		end
 	end
@@ -132,6 +142,43 @@ module up5kdemo (
 	wire vga_wren;
 	assign vga_wren = (iomem_valid && !iomem_ready && iomem_addr[31:24] == 8'h 04) ? iomem_wstrb : 4'b0000;
 	
+	wire ip_valid = iomem_valid && (iomem_addr[31:24] == 8'h 05);
+	
+	ip_wrapper_up5k ip(
+		.clock(clk),
+		.reset(!resetn),
+		.address(iomem_addr[23:0]),
+		.write_data(iomem_wdata),
+		.read_data(ip_rdata),
+		.wstrb(iomem_wstrb),
+		.valid(ip_valid),
+		.ready(ip_ready),
+		
+		.pwm({pwm_r, pwm_g, pwm_b}),
+		
+		.i2c_sda(i2c_sda),
+		.i2c_scl(i2c_scl)
+	);
+	
+	wire pwm_g, pwm_b, pwm_r;
+	
+	SB_RGBA_DRV RGBA_DRIVER (
+	  .CURREN(1'b1),
+	  .RGBLEDEN(1'b1),
+	  .RGB0PWM(pwm_g),
+	  .RGB1PWM(pwm_b),
+	  .RGB2PWM(pwm_r),
+	  .RGB0(RGB0),
+	  .RGB1(RGB1),
+	  .RGB2(RGB2)
+	);
+
+
+	defparam RGBA_DRIVER.CURRENT_MODE = "0b1";
+	defparam RGBA_DRIVER.RGB0_CURRENT = "0b000111";
+	defparam RGBA_DRIVER.RGB1_CURRENT = "0b000111";
+	defparam RGBA_DRIVER.RGB2_CURRENT = "0b000111";
+
 	
  /*vgacon_top vgacon_inst(
 		.sysclk(clk),

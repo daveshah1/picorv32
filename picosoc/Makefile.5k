@@ -1,5 +1,5 @@
 ARACHNE = ~/arachne-pnr/bin/arachne-pnr
-ARACHNE_ARGS = -c ~/icestorm/icebox/chipdb-5k.txt -s 11
+ARACHNE_ARGS = -c ~/icestorm/icebox/chipdb-5k.txt -s 13
 ICEPACK = ~/icestorm/icepack/icepack
 ICETIME = ~/icestorm/icetime/icetime
 ICEPROG = ~/icestorm/iceprog/iceprog
@@ -12,7 +12,7 @@ up5ksim: up5kdemo_tb.vvp firmware.hex
 up5ksynsim: up5kdemo_syn_tb.vvp firmware.hex
 	vvp -N $<
 
-up5kdemo.blif: up5kdemo.v spimemio.v simpleuart.v picosoc.v vgacon.v vgacon_crom.v vgacon_pll.v vgacon_tram.v up_spram.v ../picorv32.v
+up5kdemo.blif: up5kdemo.v spimemio.v simpleuart.v picosoc.v vgacon.v vgacon_crom.v vgacon_pll.v vgacon_tram.v up_spram.v ip_wrapper.v ../picorv32.v
 	yosys -ql up5kdemo.log -p 'synth_ice40 -top up5kdemo -blif up5kdemo.blif' $^
 
 up5kdemo_tb.vvp: up5kdemo_tb.v up5kdemo.v spimemio.v simpleuart.v picosoc.v ../picorv32.v spiflash.v
@@ -41,13 +41,13 @@ up5kprog_fw: firmware.bin
 # ---- Example Firmware ----
 
 firmware.elf: sections.lds start.s firmware.c
-	riscv64-unknown-elf-gcc -mabi=ilp32 -march=rv32ic -Wl,-Bstatic,-T,sections.lds,--strip-debug -ffreestanding -nostdlib -o firmware.elf start.s firmware.c
+	riscv32-unknown-elf-gcc -mabi=ilp32 -march=rv32ic -Wl,-Bstatic,-T,sections.lds,--strip-debug -DUSE_MYSTDLIB -ffreestanding -nostdlib -o firmware.elf start.s firmware.c -lgcc
 
 firmware.hex: firmware.elf
-	riscv64-unknown-elf-objcopy -O verilog firmware.elf /dev/stdout | sed -e '1 s/@00000000/@00100000/; 2,65537 d;' > firmware.hex
+	riscv32-unknown-elf-objcopy -O verilog firmware.elf /dev/stdout | sed -e '1 s/@00000000/@00100000/; 2,65537 d;' > firmware.hex
 
 firmware.bin: firmware.elf
-	riscv64-unknown-elf-objcopy  -O binary firmware.elf /dev/stdout | tail -c +1048577 > firmware.bin
+	riscv32-unknown-elf-objcopy  -O binary firmware.elf /dev/stdout | tail -c +1048577 > firmware.bin
 
 # ---- Testbench for SPI Flash Model ----
 

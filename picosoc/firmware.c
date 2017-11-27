@@ -13,6 +13,8 @@ extern uint32_t sram;
 #define reg_uart_data (*(volatile uint32_t*)0x02000008)
 #define reg_leds (*(volatile uint32_t*)0x03000000)
 #define reg_text ((volatile uint32_t*)0x04000000)
+#define reg_i2c ((volatile uint32_t*)0x05010040)
+#define reg_ctrl ((volatile uint32_t*)0x05100000)
 
 // --------------------------------------------------------
 
@@ -190,6 +192,276 @@ void memtest() {
 	print("Memtest pass\n");
 }
 
+#define I2CCR1 		(0x08)
+#define I2CCMDR 	(0x09)
+#define I2CBRLSB 	(0x0A)
+#define I2CBRMSB 	(0x0B)
+#define I2CSR			(0x0C)
+#define I2CTXDR 	(0x0D)
+#define I2CRXDR 	(0x0E)
+#define I2CGCDR 	(0x0F)
+#define I2CSADDR 	(0x03)
+#define I2CINTCR 	(0x07)
+#define I2CINTSR 	(0x06)
+
+#define BMP085_ADDRESS 0x77
+
+void i2c_wait() {
+	while((reg_i2c[I2CSR] & 0x04) == 0) ;
+
+}
+
+void i2c_wait_srw() {
+	while((reg_i2c[I2CSR] & 0x10) == 0) ;
+}
+
+void i2c_begin(uint8_t addr, bool is_read) {
+	reg_i2c[I2CTXDR] = (addr << 1) | (is_read & 0x01);
+	reg_i2c[I2CCMDR] = 0x94;
+	reg_i2c[I2CCMDR] = 0x0;
+	if(is_read) {
+		i2c_wait_srw();
+		reg_i2c[I2CCMDR] = 0x24;
+
+	} else {
+		i2c_wait();
+	}
+}
+
+void i2c_write(uint8_t data) {
+	reg_i2c[I2CTXDR] = data;
+	reg_i2c[I2CCMDR] = 0x14;
+	i2c_wait();
+	reg_i2c[I2CCMDR] = 0x0;
+}
+
+void i2c_stop() {
+	reg_i2c[I2CCMDR] = 0x44;
+}
+
+void i2c_init() {
+	reg_i2c[I2CCR1] = 0x80;
+	uint16_t prescale = 50;
+	reg_i2c[I2CBRMSB] = (prescale >> 8) & 0xFF;
+	reg_i2c[I2CBRLSB] = prescale & 0xFF;
+}
+
+
+
+
+void delay_cyc(uint32_t cycles) {
+	uint32_t cycles_begin, cycles_now;
+	__asm__ volatile ("rdcycle %0" : "=r"(cycles_begin));
+	do {
+		__asm__ volatile ("rdcycle %0" : "=r"(cycles_now));
+	} while((cycles_now - cycles_begin) < cycles);
+	
+}
+
+uint8_t i2c_read(bool is_last) {
+	if(is_last) {
+		uint8_t data = reg_i2c[I2CRXDR];
+		delay_cyc(300);
+		reg_i2c[I2CCMDR] = 0x6C;
+		i2c_wait();
+		//uint8_t dummy = reg_i2c[I2CRXDR];
+		return data;
+	} else {
+		i2c_wait();
+		return reg_i2c[I2CRXDR] & 0xFF;
+	}
+}
+
+uint8_t bmp085Read(uint8_t address)
+{
+	i2c_begin(BMP085_ADDRESS, false);
+	i2c_write(address);
+	i2c_begin(BMP085_ADDRESS, true);
+	return i2c_read(true);
+}
+
+int bmp085ReadInt(uint8_t address)
+{
+	i2c_begin(BMP085_ADDRESS, false);
+	i2c_write(address);
+	i2c_begin(BMP085_ADDRESS, true);
+	uint16_t msb = i2c_read(false);
+	uint16_t lsb = i2c_read(true);
+	//uint16_t msb = bmp085Read(address);
+	//uint16_t lsb = bmp085Read(address+1);
+	return (int16_t)((msb << 8) | lsb);
+}
+
+int16_t bmp085ReadUT()
+{
+  int16_t ut;
+  
+  // Write 0x2E into Register 0xF4
+  // This requests a temperature reading
+  i2c_begin(BMP085_ADDRESS, false);
+  i2c_write(0xF4);
+  i2c_write(0x2E);
+  i2c_stop();
+  
+  // Wait at least 4.5ms
+  delay_cyc(20*12000);
+  
+  // Read two bytes from registers 0xF6 and 0xF7
+  ut = bmp085ReadInt(0xF6);
+  return ut;
+}
+
+#define OSS 0
+
+uint32_t bmp085ReadUP()
+{
+  unsigned char msb, lsb, xlsb;
+  uint32_t up = 0;
+  
+  // Write 0x34+(OSS<<6) into register 0xF4
+  // Request a pressure reading w/ oversampling setting
+	i2c_begin(BMP085_ADDRESS, false);
+  i2c_write(0xF4);
+  i2c_write(0x34 + OSS);
+  i2c_stop();
+  
+  // Wait for conversion, delay time dependent on OSS
+  delay_cyc(24000 + (36000<<OSS));
+  
+  // Read register 0xF6 (MSB), 0xF7 (LSB), and 0xF8 (XLSB)
+  i2c_begin(BMP085_ADDRESS, false);
+  i2c_write(0xF6);
+  i2c_stop();
+  i2c_begin(BMP085_ADDRESS, true);
+  
+  msb = i2c_read(false);
+  lsb = i2c_read(false);
+  xlsb = i2c_read(true);
+  
+  up = (((unsigned long) msb << 16) | ((unsigned long) lsb << 8) | (unsigned long) xlsb) >> (8-OSS);
+  
+  return up;
+}
+
+
+void print_dec_ex(int i) {
+	char buf[10];
+	char *ptr = buf;
+	if(i < 0) {
+		i = -i;
+		print("-");
+	}
+	if(i == 0) {
+		print("0");
+	}
+	while(i > 0) {
+		*(ptr++) = '0' + (i % 10);
+		i /= 10;
+	}
+	char rev[10];
+	char *rptr = rev;
+	while(ptr != buf) {
+		*(rptr++) = *(--ptr);
+	}
+	*rptr = '\0';
+	print(rev);
+}
+
+void i2c_test() {
+
+	i2c_init();
+
+	// Calibration values
+	int ac1;
+	int ac2; 
+	int ac3; 
+	unsigned int ac4;
+	unsigned int ac5;
+	unsigned int ac6;
+	int b1; 
+	int b2;
+	int mb;
+	int mc;
+	int md;
+
+	// b5 is calculated in bmp085GetTemperature(...), this variable is also used in bmp085GetPressure(...)
+	// so ...Temperature(...) must be called before ...Pressure(...).
+	long b5; 
+	ac1 = bmp085ReadInt(0xAA);
+	ac2 = bmp085ReadInt(0xAC);
+	ac3 = bmp085ReadInt(0xAE);
+	ac4 = (uint16_t)bmp085ReadInt(0xB0);
+	ac5 = (uint16_t)bmp085ReadInt(0xB2);
+	ac6 = (uint16_t)bmp085ReadInt(0xB4);
+	b1 = bmp085ReadInt(0xB6);
+	b2 = bmp085ReadInt(0xB8);
+	mb = bmp085ReadInt(0xBA);
+	mc = bmp085ReadInt(0xBC);
+	md = bmp085ReadInt(0xBE);
+	
+	uint16_t ut = bmp085ReadUT();
+	print("ac1 = 0x");
+	print_hex(ac1, 4);
+	print("\n");
+	
+	print("ac2 = 0x");
+	print_hex(ac2, 4);
+	print("\n");
+	
+	print("ac3 = 0x");
+	print_hex(ac3, 4);
+	print("\n");
+	
+	print("ut = 0x");
+	print_hex(ut, 4);
+	print("\n");
+	
+	long x1, x2;
+
+	x1 = (((long)ut - (long)ac6)*(long)ac5) >> 15;
+	x2 = ((long)mc << 11)/(x1 + md);
+	b5 = x1 + x2;
+
+	int temp = ((b5 + 8)>>4);  
+	print("temp = ");
+	print_dec(temp / 10);
+	print(".");
+	print_dec(temp % 10);
+	print("C\n");
+	
+	uint32_t up = bmp085ReadUP();
+	
+	long x3, b3, b6, p;
+	unsigned long b4, b7;
+
+	b6 = b5 - 4000;
+	// Calculate B3
+	x1 = (b2 * (b6 * b6)>>12)>>11;
+	x2 = (ac2 * b6)>>11;
+	x3 = x1 + x2;
+	b3 = (((((long)ac1)*4 + x3)<<OSS) + 2)>>2;
+
+	// Calculate B4
+	x1 = (ac3 * b6)>>13;
+	x2 = (b1 * ((b6 * b6)>>12))>>16;
+	x3 = ((x1 + x2) + 2)>>2;
+	b4 = (ac4 * (unsigned long)(x3 + 32768))>>15;
+
+	b7 = ((unsigned long)(up - b3) * (50000>>OSS));
+	if (b7 < 0x80000000)
+		p = (b7<<1)/b4;
+	else
+		p = (b7/b4)<<1;
+		
+	x1 = (p>>8) * (p>>8);
+	x1 = (x1 * 3038)>>16;
+	x2 = (-7357 * p)>>16;
+	p += (x1 + x2 + 3791)>>4;
+		
+	print("press = ");
+	print_dec_ex(p);
+	print("Pa\n");
+}
 
 char getchar_prompt(char *prompt)
 {
@@ -499,8 +771,8 @@ void main()
 		print("   [7] Toggle continuous read mode\n");
 		print("   [9] Run simplistic benchmark\n");
 		print("   [0] Benchmark all configs\n");
-		print("   [H] Read the documentation (VGA only)\n");
 		print("   [M] Run SPRAM test\n");
+		print("   [I] Run I2C test\n");
 
 		print("\n");
 
@@ -544,11 +816,11 @@ void main()
 			case '0':
 				cmd_benchmark_all();
 				break;
-			case 'H':
-				read_docs();
-				break;
 			case 'M':
 				memtest();
+				break;
+			case 'I':
+				i2c_test();
 				break;
 			default:
 				continue;
